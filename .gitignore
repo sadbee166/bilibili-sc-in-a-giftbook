@@ -7,4 +7,3 @@ __pycache__/
 ENTRY_POINT.bat
 *.md
 !README.md
-!UI_CHANGES.md
