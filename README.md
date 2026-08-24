@@ -1,6 +1,7 @@
 # BiliBili 醒目留言记录器
 
 一个简易的二次开发玩具，vibe code含量接近100%，可能会出现莫名其妙的bug
+
 使用jingguanzhang/gift-book作为前端，xfgryujk/blivedm获取数据来达成以“礼簿”形式实时记录醒目留言或者大航海信息的效果，支持多直播间并行，除了消息获取部分完全离线运行
 
 ## 安装
