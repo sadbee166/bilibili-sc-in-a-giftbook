@@ -4,7 +4,7 @@
 
 ## 安装
 - 确保你的系统PATH中安装了Python，仅在Python 3.14上进行过测试
-- 将项目clone到本地 ```git clone --recurse-submodules https://github.com/sadbee166/bilibili-sc-in-a-giftbook.git
+- 将项目clone到本地 ```git clone --recurse-submodules https://github.com/sadbee166/bilibili-sc-in-a-giftbook.git```
 - 在你的环境下运行 ```pip install -r requirements.txt``` 来安装依赖
 
 ## 配置和使用
