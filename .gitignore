@@ -1,0 +1,7 @@
+.venv/
+.uv-cache/
+.pdm-build/
+__pycache__/
+*.py[cod]
+.env
+giftbook.config.local.json

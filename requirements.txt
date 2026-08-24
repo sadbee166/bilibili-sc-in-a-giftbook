@@ -1,0 +1,8 @@
+# GiftBook bridge runtime dependencies
+aiohttp~=3.9.0
+Brotli~=1.1.0
+pure-protobuf~=3.1.2
+yarl~=1.9.3
+
+# Use the existing local Bilibili protocol package.
+-e ./blivedm

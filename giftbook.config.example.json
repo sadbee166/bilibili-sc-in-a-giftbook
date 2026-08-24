@@ -1,0 +1,12 @@
+{
+  "room_id": 0,
+  "sessdata": "",
+  "host": "127.0.0.1",
+  "port": 6600,
+  "frontend_root": "./gift-book",
+  "replay_size": 256,
+  "subscriber_queue_size": 64,
+  "bilibili_heartbeat_seconds": 30,
+  "websocket_heartbeat_seconds": 30,
+  "subscription_timeout_seconds": 10
+}
