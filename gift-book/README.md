@@ -1,0 +1,176 @@
+# 电子礼簿系统
+
+一款**纯本地、零后端、完全本地运行的单页 Web 应用，** 旨在为各类红白喜事提供一个现代化、安全、高效的礼金（份子钱）管理解决方案。它彻底告别了传统的手写礼簿，通过数字化的方式解决了记录、统计、查询和存档的全部流程，以**简单易用**为最高设计原则。
+
+[在线演示](https://jingguanzhang.github.io/gift-book/)
+
+![unnamed](https://github.com/user-attachments/assets/1ebb4003-3dd5-442e-bc65-066ea17958eb)
+
+
+> **严正声明**
+> 
+> 本项目开源仅供**个人学习、研究或自用**。
+> **严禁任何形式的商业转售**（包括但不限于直接出售源码、打包倒卖、二次封装收费等）。
+
+
+> 如果需要二开倒卖请使用这个版本 https://github.com/jingguanzhang/gift-book-lite (含微信小程序)。
+> 请尊重开源精神，违者必究。
+---
+
+## 核心特性
+
+### 数据主权，绝对安全
+
+* **拔线能用**：纯 HTML 单页应用，无服务器交互，数据100%本地存储，不依赖任何云服务。
+* **金融级加密**：全量数据采用 **AES-256** 加密落库（IndexedDB），管理密码 **SHA-256** 哈希保护。即便电脑丢失，文件被拷走也无法破解。
+
+### 极致的录入体验
+
+* **秒级记账**：姓名、金额、渠道（微信/支付宝/现金）全键盘操作，回车即录。
+* **智能风控**：实时检测重名、重复金额，防止“记重了、记错了”。
+* **自动大写**：输入数字，自动生成规范中文大写（如：壹仟元整）。
+* **语音播报**：支持 TTS 语音朗读（“张三 贺礼 一千元整”），方便宾客现场核对金额，又能撑场面。
+
+### 双屏互动 & 仪式感
+
+* **访客副屏**：支持开启副屏页面，实时投射数据到外接屏幕/电视，主屏录入，副屏展示，方便现场宾客核对金额。
+* **隐私脱敏**：副屏自动开启隐私模式，仅展示最新记录全名，历史记录自动打码。
+* **收款码展示**：副屏支持自定义上传展示东家收款码，方便宾客现场扫码。
+* **双色主题**：内置「喜庆红」与「肃穆灰」两套 皮肤，适应红白喜事不同场景。
+
+### 专业级报表与归档
+
+* **真·PDF 引擎**：内置 PDF 渲染器（非简陋的浏览器打印），支持**自定义字体、封面图、背景纹理**，生成精美的电子礼簿。
+* **智能分批**：数据量超 1000 条自动分卷生成，防止浏览器内存溢出。
+* **审计留痕**：全链路记录修改历史（时间轴），支持**软删除（作废）**，每一笔变动都有迹可循。
+* **双重备份**：
+  * **Excel**：标准 `.xlsx` 报表，含完整修改日志。
+  * **数据文件**：导出加密的数据备份，支持跨设备全量恢复。
+
+---
+
+## 📸 界面预览
+
+<img width="1310" height="978" alt="QQ截图20251130181935" src="https://github.com/user-attachments/assets/b00c5369-5a47-4d19-b70a-f5c89d7912ad" />
+
+<img width="1047" height="736" alt="QQ截图20251130181740" src="https://github.com/user-attachments/assets/113fb4f7-fe35-4a09-b2d8-0765bc93f535" />
+<img width="1053" height="744" alt="QQ截图20251130181723" src="https://github.com/user-attachments/assets/2f7c22b7-2237-4a6c-97b3-b794b576981d" />
+
+## 🚀 快速上手
+
+---
+
+本系统由纯静态文件组成，**无需安装任何环境**。
+
+1. **下载**：从本项目Releases页面下载的windows预编译应用(exe)
+https://github.com/jingguanzhang/gift-book/releases/download/1.1/gift-book.exe
+
+2. **运行**：直接双击程序。
+3. **初始化**：
+   * 设置事项名称及**管理密码**（请务必牢记，丢失无法找回）。
+4. **记账**：录入数据
+5. **归档**：活动结束后，务必导出 **Excel** 或 **.pdf文件** 到电脑。微信收藏或云盘永久保存。
+
+---
+
+## 👨‍💻 开发者指南
+
+**本项目原生基于** **Vanilla JS + HTML** **开发，结构简单，开箱即用。**
+
+### 1. 获取代码 (Git)
+
+**首先将仓库克隆到本地：**
+
+```
+# 克隆项目
+git clone https://github.com/jingguanzhang/gift-book.git
+
+# 进入目录
+cd gift-book
+```
+
+### 2. 环境准备
+
+你只需要一个代码编辑器（推荐 **VS Code**）和一个现代浏览器（Chrome/Edge）。
+
+### 3. 启动开发
+
+虽然直接双击 `index.html` 可以运行，但为了避免浏览器的安全策略限制（如本地文件访问限制、模块加载跨域等），**强烈建议使用本地静态服务器**运行。
+
+* **方式一（推荐）：VS Code Live Server**
+  
+  1. 安装 VS Code 插件：[Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer)。
+  2. 右键选择 **"Open with Live Server"**。
+  3. 
+* **方式二：Python (Mac/Linux/Win)**
+  在项目根目录下打开终端，运行：
+  
+  ```bash
+  # Python 3
+  python -m http.server
+  # 访问 http://localhost:8000
+  ```
+
+### 4. 项目结构
+
+* `index.html`: **v1.1 专业版**主入口（核心代码均内嵌于此）。
+* `static/`: 静态资源目录。
+  * `tailwindcss.js`: 样式引擎。
+  * `xlsx.full.min.js`: Excel 导出库。
+  * `pdf-lib.min.js`: PDF 生成引擎。
+  * `crypto-js.min.js`: 加密库。
+  * `fontkit` & `.ttf`: 字体文件（用于 PDF 生成）。
+* `guest-screen.html`: 副屏显示页面。
+
+### 5. 部署上线
+
+本项目是纯静态资源，部署非常简单：
+
+* **直接上传**：将所有文件上传至 GitHub Pages、Vercel、Nginx 或任何静态文件服务器。
+* **无需编译**：不需要执行 `build` 命令，源码即产物。
+
+### 6. 可选：统一启动实时醒目留言桥接
+
+工作区根目录提供了一个统一 Python 进程，会同时启动礼簿页面、同源 WebSocket、Bilibili 醒目留言接收与事件处理。浏览器不会接触 Bilibili 凭据。
+
+```pwsh
+$env:BILIBILI_ROOM_IDS = "123456,654321"
+$env:BILIBILI_SESSDATA = "你的SESSDATA（可选）"
+python -m giftbook_bridge
+```
+
+也可以复制工作区根目录的 `giftbook.config.example.json` 为 `giftbook.config.local.json`，在启动前填写配置文件：
+
+```pwsh
+python -m giftbook_bridge --config .\giftbook.config.local.json
+```
+
+`BILIBILI_ROOM_IDS`、`BILIBILI_SESSDATA`、`GIFTBOOK_HOST`、`GIFTBOOK_PORT`、`GIFTBOOK_FRONTEND_ROOT`、事件回放容量、订阅队列容量以及心跳/订阅超时都可以在启动前配置；环境变量使用逗号分隔的直播间号并会覆盖 JSON 配置。JSON 配置使用 `"room_ids": [123456, 654321]`。未配置直播间时，礼簿页面仍会启动，但不会连接 Bilibili 实时桥接。工作区存在 `giftbook.config.local.json` 时，直接运行命令会自动读取它。配置只在进程启动时读取，启动后不会动态修改，改动后需重启进程生效。
+
+然后打开 `http://127.0.0.1:8080/`。也可以在安装项目依赖后使用 `giftbook-processor --config .\giftbook.config.local.json` 命令启动同一个进程。
+
+
+---
+
+## 🧩 技术栈
+
+* **Core**: Vanilla JS (ES6+), OOP 架构
+* **Style**: Tailwind CSS
+* **Database**: IndexedDB (idb wrapper)
+* **Crypto**: CryptoJS (AES-256)
+* **Export**:
+  * `SheetJS` (Excel)
+  * `PDF-Lib` & `Fontkit` (客户端 PDF 生成)
+* **UI Components**: Grid.js (表格), RemixIcon (图标)
+
+---
+
+## ⚖️ 免责声明
+
+本应用为便携式电子礼簿工具，仅用于现场临时记账，应用不可作为长期数据存储载体。
+
+本应用按“原样”提供，不含任何形式的明示或默示担保。
+
+**开发者不对因使用本应用造成的任何数据丢失（如忘记密码、清理电脑、浏览器缓存、重装系统或遗忘管理密码等）承担责任。**
+
+数据无价，活动结束后，请立即使用 **导出Excel/Pdf** 功能将数据保存到安全的地方。
