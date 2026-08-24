@@ -85,3 +85,67 @@ test("SuperChatSaver durably checks source keys and withdraws matching records",
   assert.equal(await saver.handleEvent({ type: "super_chat.deleted", roomId: 101, sourceKey: event.sourceKey }), true);
   assert.deepEqual(withdrawn, [event.sourceKey]);
 });
+
+test("LiveEventSaver opt-in membership records are normalized and durably deduplicated", async () => {
+  const saved = new Map();
+  const notifications = [];
+  const window = loadBrowserScript("super-chat-saver.js");
+  const saver = new window.LiveEventSaver({
+    getCurrentEvent: () => ({ id: 1 }),
+    getRoomId: () => 101,
+    membershipLogging: true,
+    hasSourceKey: async (sourceKey) => saved.has(sourceKey),
+    saveEvent: async (event) => {
+      saved.set(event.sourceKey, event);
+      return true;
+    },
+    notify: (message, type) => notifications.push({ message, type }),
+  });
+  saver.setContext({ eventId: 1, roomId: 101 });
+
+  const event = {
+    type: "membership.created",
+    roomId: 101,
+    sourceKey: "bilibili:101:membership:42:3:10:20:1990:2:1",
+    userId: 42,
+    userName: "舰长用户",
+    guardLevel: 3,
+    quantity: 2,
+    unit: "月",
+    amount: 3.98,
+    unitAmount: 1.99,
+    price: 1990,
+    source: 1,
+    startTime: 10,
+    endTime: 20,
+    toastText: "舰长用户开通了舰长",
+    giftId: 1001,
+  };
+
+  assert.equal(await saver.handleEvent(event), true);
+  assert.equal(saved.get(event.sourceKey).sourceMetadata.sourceType, "membership");
+  assert.equal(saved.get(event.sourceKey).sourceMetadata.price, 1990);
+  assert.equal(await saver.handleEvent(event), false);
+  assert.equal(notifications.some(({ message }) => message === "B站会员已自动保存。"), true);
+  assert.equal(notifications.some(({ message }) => message === "重复的B站会员记录已忽略。"), true);
+
+  saver.setMembershipLogging(false);
+  assert.equal(await saver.handleEvent({ ...event, sourceKey: "disabled" }), false);
+});
+
+test("LiveEventSaver ignores membership events for unpaired or different rooms", async () => {
+  const window = loadBrowserScript("super-chat-saver.js");
+  const saver = new window.SuperChatSaver({
+    getCurrentEvent: () => ({ id: 1 }),
+    getRoomId: () => null,
+    membershipLogging: true,
+    saveEvent: async () => {
+      throw new Error("must not save");
+    },
+  });
+  saver.setContext({ eventId: 1, roomId: null });
+  assert.equal(
+    await saver.handleEvent({ type: "membership.created", roomId: 101, sourceKey: "unpaired", userName: "用户" }),
+    false
+  );
+});

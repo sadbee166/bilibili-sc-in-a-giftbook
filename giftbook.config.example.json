@@ -1,6 +1,7 @@
 {
-  "room_ids": [30655190],
+  "room_ids": [30655190, 23770996],
   "sessdata": "",
+  "membership_logging": false,
   "host": "127.0.0.1",
   "port": 6600,
   "frontend_root": "./gift-book",

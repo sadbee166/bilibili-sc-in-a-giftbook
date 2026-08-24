@@ -28,6 +28,7 @@ FRONTEND_ROOT_KEY = web.AppKey("frontend_root", Path)
 class BridgeConfig:
     room_ids: Tuple[int, ...] = ()
     sessdata: str = ""
+    membership_logging: bool = False
     host: str = "127.0.0.1"
     port: int = 8080
     frontend_root: Path = DEFAULT_FRONTEND_ROOT
@@ -39,6 +40,7 @@ class BridgeConfig:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "room_ids", _parse_room_ids(self.room_ids, "room_ids"))
+        object.__setattr__(self, "membership_logging", _parse_boolean(self.membership_logging, "membership_logging"))
 
     @classmethod
     def from_env(
@@ -104,6 +106,11 @@ class BridgeConfig:
                 raise ValueError(f"{label} must be a positive number")
             return parsed_value
 
+        membership_logging = _parse_boolean(
+            configured_value("membership_logging", "BILIBILI_MEMBERSHIP_LOGGING", False),
+            "BILIBILI_MEMBERSHIP_LOGGING",
+        )
+
         port = integer_value("port", "GIFTBOOK_PORT", 8080, "GIFTBOOK_PORT")
         replay_size = integer_value("replay_size", "GIFTBOOK_REPLAY_SIZE", 256, "GIFTBOOK_REPLAY_SIZE")
         subscriber_queue_size = integer_value(
@@ -136,6 +143,7 @@ class BridgeConfig:
         return cls(
             room_ids=room_ids,
             sessdata=str(configured_value("sessdata", "BILIBILI_SESSDATA", "") or ""),
+            membership_logging=membership_logging,
             host=host,
             port=port,
             frontend_root=Path(configured_frontend_root).resolve(),
@@ -212,6 +220,22 @@ def _parse_room_ids(raw_value: Any, label: str) -> Tuple[int, ...]:
         seen.add(room_id)
         room_ids.append(room_id)
     return tuple(room_ids)
+
+
+def _parse_boolean(raw_value: Any, label: str) -> bool:
+    """Parse JSON booleans and the compact environment forms 1/0 and true/false."""
+
+    if isinstance(raw_value, bool):
+        return raw_value
+    if isinstance(raw_value, int) and raw_value in (0, 1):
+        return bool(raw_value)
+    if isinstance(raw_value, str):
+        normalized = raw_value.strip().casefold()
+        if normalized in {"true", "1"}:
+            return True
+        if normalized in {"false", "0"}:
+            return False
+    raise ValueError(f"{label} must be true/false or 1/0")
 
 
 def _subscription_from_payload(payload: Any, config: BridgeConfig) -> tuple[Any, int, Optional[int]]:
@@ -341,7 +365,13 @@ async def guest_screen_handler(request: web.Request) -> web.FileResponse:
 
 async def bridge_config_handler(request: web.Request) -> web.Response:
     config: BridgeConfig = request.app[BRIDGE_CONFIG_KEY]
-    return web.json_response({"version": 2, "roomIds": list(config.room_ids)})
+    return web.json_response(
+        {
+            "version": 3,
+            "roomIds": list(config.room_ids),
+            "membershipLogging": config.membership_logging,
+        }
+    )
 
 
 def create_app(
@@ -356,6 +386,7 @@ def create_app(
         config.room_ids,
         config.sessdata,
         hub.publish,
+        membership_logging=config.membership_logging,
         heartbeat_interval=config.bilibili_heartbeat_seconds,
     )
     frontend_root = config.frontend_root.resolve()

@@ -35,6 +35,7 @@ class GiftBookProcessor:
             self.config.room_ids,
             self.config.sessdata,
             self.event_hub.publish,
+            membership_logging=self.config.membership_logging,
             heartbeat_interval=self.config.bilibili_heartbeat_seconds,
         )
         self.app = create_app(self.config, event_hub=self.event_hub, live_source=self.live_source)
