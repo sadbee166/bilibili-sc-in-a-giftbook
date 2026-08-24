@@ -2,7 +2,7 @@
 
 一个简易的二次开发玩具，vibe code含量接近100%，可能会出现莫名其妙的bug
 
-使用jingguanzhang/gift-book作为前端，xfgryujk/blivedm获取数据来达成以“礼簿”形式实时记录醒目留言或者大航海信息的效果，支持多直播间并行，除了消息获取部分完全离线运行
+使用[jingguanzhang/gift-book](https://github.com/jingguanzhang/gift-book)作为前端，[xfgryujk/blivedm](https://github.com/xfgryujk/blivedm)获取数据来达成以“礼簿”形式实时记录醒目留言或者大航海信息的效果，支持多直播间并行，除了消息获取部分完全离线运行
 
 ## 安装
 - 确保你的系统PATH中安装了Python，仅在Python 3.14上进行过测试
