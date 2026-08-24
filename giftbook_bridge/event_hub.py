@@ -24,16 +24,17 @@ ReplayResult = Union[List[Event], ResyncRequired]
 class EventSubscriber:
     """One browser connection's bounded, non-blocking event queue."""
 
-    def __init__(self, max_queue_size: int) -> None:
+    def __init__(self, max_queue_size: int, room_id: Optional[int] = None) -> None:
         self._queue: "asyncio.Queue[Optional[Event]]" = asyncio.Queue(maxsize=max_queue_size)
         self._closed = False
+        self.room_id = room_id
 
     @property
     def closed(self) -> bool:
         return self._closed
 
     def put_nowait(self, event: Event) -> None:
-        if self._closed:
+        if self._closed or (self.room_id is not None and event.get("roomId") != self.room_id):
             return
         self._queue.put_nowait(event)
 
@@ -127,8 +128,8 @@ class EventHub:
                 # it so future Bilibili messages remain immediately publishable.
                 self.unsubscribe(subscriber)
 
-    def subscribe(self) -> EventSubscriber:
-        subscriber = EventSubscriber(self._subscriber_queue_size)
+    def subscribe(self, room_id: Optional[int] = None) -> EventSubscriber:
+        subscriber = EventSubscriber(self._subscriber_queue_size, room_id)
         self._subscribers.add(subscriber)
         return subscriber
 
@@ -137,18 +138,24 @@ class EventHub:
             self._subscribers.remove(subscriber)
         subscriber.close()
 
-    def replay_after(self, seq: int) -> ReplayResult:
+    def replay_after(self, seq: Optional[int], room_id: Optional[int] = None) -> ReplayResult:
         """Return events newer than ``seq`` or ``RESYNC_REQUIRED`` if too old."""
 
+        if seq is None:
+            return []
         if not isinstance(seq, int) or isinstance(seq, bool) or seq < 0:
-            raise ValueError("seq must be a non-negative integer")
+            raise ValueError("seq must be a non-negative integer or None")
         if not self._replay:
             return []
 
-        oldest_seq = self._replay[0]["seq"]
+        room_events = [event for event in self._replay if room_id is None or event.get("roomId") == room_id]
+        if not room_events:
+            return []
+
+        oldest_seq = room_events[0]["seq"]
         if seq < oldest_seq - 1:
             return RESYNC_REQUIRED
-        return [event for event in self._replay if event["seq"] > seq]
+        return [event for event in room_events if event["seq"] > seq]
 
 
 __all__ = (

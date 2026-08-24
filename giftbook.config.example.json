@@ -1,5 +1,5 @@
 {
-  "room_id": 0,
+  "room_ids": [30655190],
   "sessdata": "",
   "host": "127.0.0.1",
   "port": 6600,

@@ -5,3 +5,7 @@ __pycache__/
 *.py[cod]
 .env
 giftbook.config.local.json
+ENTRY_POINT.bat
+*.md
+!README.md
+!UI_CHANGES.md

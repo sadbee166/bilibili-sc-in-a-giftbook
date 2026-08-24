@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import http.cookies
 import math
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import aiohttp
 import blivedm
@@ -75,11 +76,11 @@ class SuperChatHandler(blivedm.BaseHandler):
 
 
 class LiveSource:
-    """Own one BLiveClient and its aiohttp session for application lifecycle use."""
+    """Own one BLiveClient per configured room for application lifecycle use."""
 
     def __init__(
         self,
-        room_id: Optional[int],
+        room_ids: Optional[Sequence[int]],
         sessdata: str,
         publish: EventPublisher,
         *,
@@ -87,7 +88,10 @@ class LiveSource:
         session_factory: Callable[..., aiohttp.ClientSession] = aiohttp.ClientSession,
         heartbeat_interval: float = 30.0,
     ) -> None:
-        self.room_id = int(room_id) if room_id is not None else None
+        parsed_room_ids = tuple(int(room_id) for room_id in (room_ids or ()))
+        if any(room_id <= 0 for room_id in parsed_room_ids) or len(set(parsed_room_ids)) != len(parsed_room_ids):
+            raise ValueError("room_ids must contain unique positive integer IDs")
+        self.room_ids = parsed_room_ids
         self.sessdata = sessdata
         self._publish = publish
         self._client_factory = client_factory
@@ -96,16 +100,16 @@ class LiveSource:
         if not math.isfinite(self.heartbeat_interval) or self.heartbeat_interval <= 0:
             raise ValueError("heartbeat_interval must be positive")
         self._session: Optional[aiohttp.ClientSession] = None
-        self._client: Optional[Any] = None
+        self._clients: Dict[int, Any] = {}
 
     @property
-    def client(self) -> Optional[Any]:
-        return self._client
+    def clients(self) -> Mapping[int, Any]:
+        return dict(self._clients)
 
     async def start(self) -> None:
-        if self._client is not None:
+        if self._clients:
             return
-        if self.room_id is None:
+        if not self.room_ids:
             return
 
         session = self._session_factory()
@@ -117,26 +121,28 @@ class LiveSource:
             session.cookie_jar.update_cookies(cookies)
 
         try:
-            client = self._client_factory(
-                self.room_id,
-                session=session,
-                heartbeat_interval=self.heartbeat_interval,
-            )
-            client.set_handler(SuperChatHandler(self._publish, room_id=self.room_id))
-            client.start()
-            self._client = client
+            for room_id in self.room_ids:
+                client = self._client_factory(
+                    room_id,
+                    session=session,
+                    heartbeat_interval=self.heartbeat_interval,
+                )
+                self._clients[room_id] = client
+                client.set_handler(SuperChatHandler(self._publish, room_id=room_id))
+                client.start()
         except Exception:
+            await asyncio.gather(*(client.stop_and_close() for client in self._clients.values()), return_exceptions=True)
+            self._clients.clear()
             await session.close()
             self._session = None
             raise
 
     async def stop(self) -> None:
-        client, session = self._client, self._session
-        self._client = None
+        clients, session = tuple(self._clients.values()), self._session
+        self._clients.clear()
         self._session = None
 
-        if client is not None:
-            await client.stop_and_close()
+        await asyncio.gather(*(client.stop_and_close() for client in clients), return_exceptions=True)
         if session is not None and not session.closed:
             await session.close()
 

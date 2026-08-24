@@ -8,7 +8,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any, List, Mapping, Optional, Tuple
 
 from aiohttp import WSMsgType, web
 
@@ -26,7 +26,7 @@ FRONTEND_ROOT_KEY = web.AppKey("frontend_root", Path)
 
 @dataclass(frozen=True)
 class BridgeConfig:
-    room_id: Optional[int]
+    room_ids: Tuple[int, ...] = ()
     sessdata: str = ""
     host: str = "127.0.0.1"
     port: int = 8080
@@ -36,6 +36,9 @@ class BridgeConfig:
     bilibili_heartbeat_seconds: float = 30.0
     websocket_heartbeat_seconds: float = 30.0
     subscription_timeout_seconds: float = 10.0
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "room_ids", _parse_room_ids(self.room_ids, "room_ids"))
 
     @classmethod
     def from_env(
@@ -79,15 +82,8 @@ class BridgeConfig:
                 return values[environment_key]
             return file_values.get(config_key, default)
 
-        room_value = configured_value("room_id", "BILIBILI_ROOM_ID")
-        room_id = None
-        if room_value is not None and str(room_value).strip():
-            try:
-                room_id = int(str(room_value).strip())
-            except (TypeError, ValueError) as error:
-                raise ValueError("BILIBILI_ROOM_ID must be an integer") from error
-            if room_id <= 0:
-                raise ValueError("BILIBILI_ROOM_ID must be positive")
+        room_value = configured_value("room_ids", "BILIBILI_ROOM_IDS")
+        room_ids = _parse_room_ids(room_value, "BILIBILI_ROOM_IDS")
 
         def integer_value(config_key: str, environment_key: str, default: int, label: str) -> int:
             raw_value = configured_value(config_key, environment_key, default)
@@ -138,7 +134,7 @@ class BridgeConfig:
                     configured_frontend_root = config_directory / configured_frontend_root
 
         return cls(
-            room_id=room_id,
+            room_ids=room_ids,
             sessdata=str(configured_value("sessdata", "BILIBILI_SESSDATA", "") or ""),
             host=host,
             port=port,
@@ -181,31 +177,72 @@ async def _send_subscriber_events(ws: web.WebSocketResponse, subscriber: EventSu
         await _send_event(ws, event)
 
 
-def _subscription_from_payload(payload: Any, config: BridgeConfig) -> tuple[Any, int]:
+def _parse_room_ids(raw_value: Any, label: str) -> Tuple[int, ...]:
+    """Parse a JSON room-id array or a comma-separated environment value."""
+
+    if raw_value is None:
+        return ()
+    if isinstance(raw_value, str):
+        if not raw_value.strip():
+            return ()
+        raw_values: List[Any] = raw_value.split(",")
+    elif isinstance(raw_value, (list, tuple)):
+        raw_values = list(raw_value)
+    else:
+        raise ValueError(f"{label} must be a JSON array or comma-separated values")
+
+    room_ids = []
+    seen = set()
+    for raw_room_id in raw_values:
+        if isinstance(raw_room_id, bool):
+            raise ValueError(f"{label} must contain positive integer IDs")
+        if isinstance(raw_room_id, int):
+            room_id = raw_room_id
+        elif isinstance(raw_room_id, str) and raw_room_id.strip():
+            try:
+                room_id = int(raw_room_id.strip())
+            except ValueError as error:
+                raise ValueError(f"{label} must contain positive integer IDs") from error
+        else:
+            raise ValueError(f"{label} must contain positive integer IDs")
+        if room_id <= 0:
+            raise ValueError(f"{label} must contain positive integer IDs")
+        if room_id in seen:
+            raise ValueError(f"{label} must not contain duplicate IDs")
+        seen.add(room_id)
+        room_ids.append(room_id)
+    return tuple(room_ids)
+
+
+def _subscription_from_payload(payload: Any, config: BridgeConfig) -> tuple[Any, int, Optional[int]]:
     if not isinstance(payload, dict) or payload.get("type") != "subscribe":
         raise ValueError("无效的订阅请求")
-    if config.room_id is None:
+    if not config.room_ids:
         raise PermissionError("当前桥接服务尚未配置直播间")
 
     try:
         room_id = int(payload["roomId"])
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError("缺少有效的直播间号") from error
-    if room_id != config.room_id:
+    if room_id not in config.room_ids:
         raise PermissionError("该直播间未配置在当前桥接服务中")
 
     event_id = payload.get("eventId")
     if event_id in (None, ""):
         raise ValueError("缺少事项编号")
 
-    last_seq_value = payload.get("lastSeq", 0)
+    last_seq_value = payload.get("lastSeq")
+    if last_seq_value is None:
+        return event_id, room_id, None
+    if isinstance(last_seq_value, bool):
+        raise ValueError("lastSeq 必须是整数")
     try:
         last_seq = int(last_seq_value)
     except (TypeError, ValueError) as error:
         raise ValueError("lastSeq 必须是整数") from error
     if last_seq < 0:
         raise ValueError("lastSeq 不能为负数")
-    return event_id, last_seq
+    return event_id, room_id, last_seq
 
 
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
@@ -221,7 +258,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
             return ws
         try:
             payload = json.loads(first_message.data)
-            event_id, last_seq = _subscription_from_payload(payload, config)
+            event_id, room_id, last_seq = _subscription_from_payload(payload, config)
         except PermissionError as error:
             await ws.send_json({"type": "error", "message": str(error)})
             await ws.close(code=1008, message=str(error).encode("utf-8"))
@@ -231,17 +268,17 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
             await ws.close(code=1008, message=str(error).encode("utf-8"))
             return ws
 
-        subscriber = hub.subscribe()
+        subscriber = hub.subscribe(room_id)
         # Take the replay snapshot before the first await. The hub publisher is
         # synchronous, so no upstream event can interleave these two calls.
-        replay = hub.replay_after(last_seq)
+        replay = hub.replay_after(last_seq, room_id)
         replay_cutoff = hub.current_seq
         sender = None
         try:
             await ws.send_json(
                 {
                     "type": "subscribed",
-                    "roomId": config.room_id,
+                    "roomId": room_id,
                     "eventId": event_id,
                     "lastSeq": hub.current_seq,
                 }
@@ -304,7 +341,7 @@ async def guest_screen_handler(request: web.Request) -> web.FileResponse:
 
 async def bridge_config_handler(request: web.Request) -> web.Response:
     config: BridgeConfig = request.app[BRIDGE_CONFIG_KEY]
-    return web.json_response({"version": 1, "roomId": config.room_id})
+    return web.json_response({"version": 2, "roomIds": list(config.room_ids)})
 
 
 def create_app(
@@ -316,7 +353,7 @@ def create_app(
     config = config or BridgeConfig.from_env()
     hub = event_hub or EventHub(config.replay_size, config.subscriber_queue_size)
     source = live_source or LiveSource(
-        config.room_id,
+        config.room_ids,
         config.sessdata,
         hub.publish,
         heartbeat_interval=config.bilibili_heartbeat_seconds,

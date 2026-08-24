@@ -32,7 +32,7 @@ class GiftBookProcessor:
         self.config = config or BridgeConfig.from_env()
         self.event_hub = event_hub or EventHub(self.config.replay_size, self.config.subscriber_queue_size)
         self.live_source = live_source or LiveSource(
-            self.config.room_id,
+            self.config.room_ids,
             self.config.sessdata,
             self.event_hub.publish,
             heartbeat_interval=self.config.bilibili_heartbeat_seconds,
